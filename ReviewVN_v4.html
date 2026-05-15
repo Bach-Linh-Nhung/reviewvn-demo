@@ -308,7 +308,7 @@ button{transition:all 0.2s cubic-bezier(0.16,1,0.3,1)}
       <input id="phone-inp" type="tel" placeholder="090 123 4567" class="input">
     </div>
     <button onclick="showOtp()" class="btn-main" style="margin-bottom:12px">Nhận mã OTP ngay</button>
-    <button onclick="vaoThuKhongDangNhap()" style="width:100%;background:var(--bg-soft);border:1.5px dashed var(--border);border-radius:16px;padding:14px;font-size:14px;font-weight:800;color:var(--text-3);cursor:pointer;font-family:inherit;margin-bottom:24px">👀 Xem thử — không cần đăng nhập</button>
+    <button id="btn-xem-thu" onclick="vaoThuKhongDangNhap()" style="width:100%;background:var(--bg-soft);border:1.5px dashed var(--border);border-radius:16px;padding:14px;font-size:14px;font-weight:800;color:var(--text-3);cursor:pointer;font-family:inherit;margin-bottom:24px">👀 Xem thử — không cần đăng nhập</button>
     <div style="display:flex;align-items:center;gap:12px;margin:24px 0">
       <div style="flex:1;height:1px;background:var(--border)"></div>
       <span style="font-size:13px;color:var(--text-3);font-weight:700">hoặc</span>
@@ -1443,6 +1443,14 @@ function go(id) {
   // Tự động load thông tin user từ DB khi vào trang hồ sơ
   if ((id === 's-profile' || id === 's-myprofile') && typeof loadUserProfile === 'function') loadUserProfile();
   if (id === 's-profile') capNhatXungHoHienThi();
+  // Ẩn nút "Xem thử" nếu đã có token thật
+  if (id === 's-auth') {
+    try {
+      const hasToken = localStorage.getItem('rvn_token');
+      const btn = document.getElementById('btn-xem-thu');
+      if (btn) btn.style.display = hasToken ? 'none' : '';
+    } catch(e) {}
+  }
   // Tự động load danh sách quán từ DB khi vào trang Khám phá
   if (id === 's-explore' && typeof loadShopsExplore === 'function') loadShopsExplore();
   // Tự động load thông báo từ đơn hàng thật khi vào trang Thông báo
@@ -3422,12 +3430,29 @@ function doSocialLogin() {
     const token = params.get('token');
     const user  = params.get('user');
     if (token && user) {
-      localStorage.setItem('rvn_token', token);
-      localStorage.setItem('rvn_user', decodeURIComponent(user));
+      try {
+        localStorage.setItem('rvn_token', token);
+        localStorage.setItem('rvn_user', decodeURIComponent(user));
+        // Lưu xưng hô mặc định nếu chưa có
+        if (!localStorage.getItem('rvn_xungho')) localStorage.setItem('rvn_xungho', 'ban');
+      } catch(e) {}
       // Xoá params khỏi URL
       window.history.replaceState({}, '', window.location.pathname);
-      showToast('🎉 Đăng nhập thành công!', 2000);
-      setTimeout(() => go('s-feed'), 500);
+      // Chờ DOM + go() sẵn sàng rồi mới chuyển màn
+      const tryGo = () => {
+        if (typeof go === 'function') {
+          showToast('🎉 Đăng nhập Google thành công!', 2000);
+          setTimeout(() => go('s-role'), 800);
+        } else {
+          setTimeout(tryGo, 100);
+        }
+      };
+      // Ẩn nút "Xem thử" khi đã đăng nhập thật
+      document.addEventListener('DOMContentLoaded', tryGo);
+      // Fallback nếu DOMContentLoaded đã qua
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        tryGo();
+      }
     }
   } catch(e) {}
 })();
@@ -6347,7 +6372,7 @@ function submitDataDownload() {
 
     <!-- Reviewer - có slogan -->
     <div onclick="enterRole('reviewer')" style="background:linear-gradient(135deg,rgba(236,72,153,0.15),rgba(219,39,119,0.08));border:2px solid rgba(236,72,153,0.5);border-radius:20px;padding:18px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform 0.15s;position:relative" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.98)'" ontouchend="this.style.transform='scale(1)'">
-      <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#ec4899,#B5A3F5);border-radius:9999px;padding:3px 14px;font-size:10px;font-weight:900;color:#fff;white-space:nowrap">⭐ Kiếm tiền từ việc đi ăn</div>
+      <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#ec4899,#B5A3F5);border-radius:9999px;padding:3px 14px;font-size:10px;font-weight:900;color:#fff;white-space:nowrap;font-style:italic">Ăn để làm — Làm để ăn.</div>
       <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#ec4899,#db2777);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🎬</div>
       <div style="flex:1">
         <div style="font-size:16px;font-weight:900;color:var(--text);margin-bottom:3px">Reviewer</div>
@@ -6355,11 +6380,6 @@ function submitDataDownload() {
       </div>
       <span style="font-size:20px;color:var(--text-4)">›</span>
     </div>
-    <!-- SLOGAN ngay dưới nút Reviewer -->
-    <div style="text-align:center;margin-bottom:14px;padding:8px 0">
-      <div style="font-size:13px;font-weight:900;color:#ec4899;letter-spacing:0.02em">Ăn để làm — Làm để ăn.</div>
-    </div>
-
     <!-- Shipper -->
     <div onclick="enterRole('shipper')" style="background:linear-gradient(135deg,rgba(22,163,74,0.2),rgba(21,128,61,0.1));border:1.5px solid rgba(22,163,74,0.5);border-radius:20px;padding:18px;margin-bottom:14px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform 0.15s" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.98)'" ontouchend="this.style.transform='scale(1)'">
       <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#B5A3F5,#9B85E8);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🛵</div>
@@ -6746,7 +6766,7 @@ function submitDataDownload() {
       <div style="font-size:28px">🎁</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:900">Tạo khuyến mãi ngay</div>
-        <div style="font-size:11px;opacity:.85">Vắng khách? 3 chạm là đăng xong · Quán tự chịu chi phí</div>
+        <div style="font-size:11px;opacity:.85">Vắng khách? 3 chạm là đăng xong · Tăng đơn ngay hôm nay</div>
       </div>
       <div style="background:rgba(255,255,255,0.9);border-radius:12px;padding:6px 12px;font-size:12px;font-weight:900;color:#FFA8B0;white-space:nowrap">+ Tạo</div>
     </div>
@@ -13606,7 +13626,7 @@ window.loadRealShops = async function() {
 </div>
 
 <!-- ============ TRANG REVIEWER DASHBOARD ============ -->
-<div id="s-reviewer-home" class="screen" style="background:var(--bg);overflow-y:auto;color:#fff">
+<div id="s-reviewer-home" class="screen" style="background:var(--bg-soft);overflow-y:auto;color:var(--text)">
   <!-- Header với cấp bậc -->
   <div style="background:linear-gradient(180deg,var(--p),var(--pd));padding:44px 16px 30px;position:relative">
     <button onclick="go('s-profile')" style="position:absolute;top:44px;left:14px;z-index:200;background:rgba(255,255,255,0.2);border:2px solid #fff;border-radius:50%;width:40px;height:40px;color:#fff;font-size:18px;cursor:pointer;font-family:inherit;font-weight:900;display:flex;align-items:center;justify-content:center">←</button>
@@ -13626,12 +13646,12 @@ window.loadRealShops = async function() {
   </div>
 
   <!-- Tiến độ lên Vàng -->
-  <div style="background:var(--w);padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1)">
+  <div style="background:var(--w);padding:14px 16px;border-bottom:1px solid var(--border)">
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);margin-bottom:6px">
       <span>🥈 Bạc → 🥇 Vàng</span>
       <span><b style="color:#fbbf24">82</b> / 200 đơn</span>
     </div>
-    <div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:3px">
+    <div style="background:var(--border);border-radius:8px;padding:3px">
       <div style="background:linear-gradient(90deg,#94a3b8,#fbbf24);height:8px;border-radius:6px;width:41%"></div>
     </div>
     <div style="font-size:10px;color:var(--text-4);margin-top:4px;text-align:center">Còn 118 đơn để lên Vàng (+5% hoa hồng)</div>
@@ -13647,15 +13667,15 @@ window.loadRealShops = async function() {
 
     <!-- Stats -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
-      <div style="background:var(--w);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px;text-align:center">
+      <div style="background:var(--w);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center">
         <div style="font-size:18px;font-weight:900;color:#4ade80">82</div>
         <div style="font-size:10px;color:var(--text-3);margin-top:2px">Đơn tháng</div>
       </div>
-      <div style="background:var(--w);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px;text-align:center">
+      <div style="background:var(--w);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center">
         <div style="font-size:18px;font-weight:900;color:#fbbf24">12</div>
         <div style="font-size:10px;color:var(--text-3);margin-top:2px">Video</div>
       </div>
-      <div style="background:var(--w);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px;text-align:center">
+      <div style="background:var(--w);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center">
         <div style="font-size:18px;font-weight:900;color:#a78bfa">28.4K</div>
         <div style="font-size:10px;color:var(--text-3);margin-top:2px">Lượt xem</div>
       </div>
@@ -13672,7 +13692,7 @@ window.loadRealShops = async function() {
     <div id="rev-tab-videos" class="rev-content">
       <div style="font-size:11px;color:var(--text-4);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">📊 Hiệu quả từng video</div>
 
-      <div style="background:var(--w);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px;margin-bottom:10px">
+      <div style="background:var(--w);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px">
         <div style="display:flex;gap:10px;align-items:start;margin-bottom:10px">
           <div style="width:60px;height:80px;border-radius:14px;background:var(--w);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🍜</div>
           <div style="flex:1;min-width:0">
@@ -13691,7 +13711,7 @@ window.loadRealShops = async function() {
         </div>
       </div>
 
-      <div style="background:var(--w);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px;margin-bottom:10px">
+      <div style="background:var(--w);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px">
         <div style="display:flex;gap:10px;align-items:start;margin-bottom:10px">
           <div style="width:60px;height:80px;border-radius:14px;background:linear-gradient(135deg,#0a1a0e,#0d2b14);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🍚</div>
           <div style="flex:1;min-width:0">
@@ -13710,7 +13730,7 @@ window.loadRealShops = async function() {
         </div>
       </div>
 
-      <div style="background:var(--w);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px;margin-bottom:10px">
+      <div style="background:var(--w);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px">
         <div style="display:flex;gap:10px;align-items:start;margin-bottom:10px">
           <div style="width:60px;height:80px;border-radius:14px;background:linear-gradient(135deg,#1a0a10,#3a1420);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🧋</div>
           <div style="flex:1;min-width:0">
@@ -13761,7 +13781,7 @@ window.loadRealShops = async function() {
             <div style="font-size:11px;color:var(--text-3)">50 - 199 đơn · Hiện tại</div>
           </div>
         </div>
-        <div style="background:rgba(255,255,255,0.1);border-radius:14px;padding:8px 10px;font-size:11px;color:#e2e8f0;line-height:1.5">
+        <div style="background:var(--bg-soft);border-radius:14px;padding:8px 10px;font-size:11px;color:#e2e8f0;line-height:1.5">
           ✓ Hoa hồng <b style="color:#fbbf24">10%</b> mỗi đơn<br>
           ✓ Đăng tối đa <b>30 video/tháng</b><br>
           ✓ Voucher Reviewer riêng
@@ -16159,8 +16179,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 // ============================================================
-// HỆ THỐNG KHUYẾN MÃI TỰ TẠO CHO QUÁN - BIÊN BẢN BỔ SUNG 15/05/2026
-// Quán tự chịu 100% chi phí · 3 chạm là xong · 6 template sẵn
+// HỆ THỐNG KHUYẾN MÃI TỰ TẠO CHO QUÁN - 15/05/2026
+// 3 chạm là xong · 6 template sẵn
 // ============================================================
 
 const PROMO_TEMPLATES = [
